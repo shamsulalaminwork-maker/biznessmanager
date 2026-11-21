@@ -1,0 +1,41 @@
+name: Build Android APK
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync android
+      - name: Build release APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+      - name: Rename APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk CorpoMerch-Invoice.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CorpoMerch-Invoice-apk
+          path: CorpoMerch-Invoice.apk
+      - name: Publish to Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "apk-${{ github.run_number }}" CorpoMerch-Invoice.apk \
+            --title "CorpoMerch Invoice build ${{ github.run_number }}" \
+            --notes "Download CorpoMerch-Invoice.apk on your Android phone and install it."
